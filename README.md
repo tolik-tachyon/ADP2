@@ -19,3 +19,29 @@ The system demonstrates:
 ---
 
 ## Architecture
+
+---
+
+## Services
+
+### Order Service
+- REST API (Gin)
+- Handles order creation, retrieval, cancellation
+- Calls Payment Service via gRPC
+- Supports idempotency key
+
+### Payment Service
+- gRPC server
+- Authorizes or declines payments
+- Stores payment records in PostgreSQL
+
+---
+
+## gRPC Contract
+
+Defined in `proto-contracts` repo:
+
+```proto
+service PaymentService {
+  rpc ProcessPayment (PaymentRequest) returns (PaymentResponse);
+}

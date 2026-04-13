@@ -18,7 +18,6 @@ func NewPaymentUseCase(repo repository.PaymentRepository) *PaymentUseCase {
 func (uc *PaymentUseCase) AuthorizePayment(payment *domain.Payment) error {
 	payment.ID = uuid.New().String()
 
-	// Проверка лимита
 	if payment.Amount > 100000 {
 		payment.Status = "Declined"
 		payment.TransactionID = ""

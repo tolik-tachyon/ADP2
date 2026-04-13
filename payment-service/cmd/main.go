@@ -3,16 +3,22 @@ package main
 import (
 	"database/sql"
 	"log"
+	"net"
+
 	"payment-service/internal/repository"
-	paymentHTTP "payment-service/internal/transport/http"
+	grpcTransport "payment-service/internal/transport/grpc"
 	"payment-service/internal/usecase"
 
-	"github.com/gin-gonic/gin"
+	pb "github.com/tolik-tachyon/proto-generated/paymentpb"
+
 	_ "github.com/lib/pq"
+	"google.golang.org/grpc"
 )
 
 func main() {
-	db, err := sql.Open("postgres", "host=localhost port=5432 user=postgres password=Study.ollie dbname=payments_db sslmode=disable")
+	db, err := sql.Open("postgres",
+		"host=localhost port=5432 user=postgres password=Study.ollie dbname=payments_db sslmode=disable",
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -20,11 +26,21 @@ func main() {
 
 	repo := repository.NewPostgresPaymentRepository(db)
 	uc := usecase.NewPaymentUseCase(repo)
-	handler := paymentHTTP.NewPaymentHandler(uc)
 
-	r := gin.Default()
-	r.POST("/payments", handler.CreatePayment)
-	r.GET("/payments/:order_id", handler.GetPayment)
+	lis, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	r.Run(":8081")
+	grpcServer := grpc.NewServer()
+
+	pb.RegisterPaymentServiceServer(
+		grpcServer,
+		grpcTransport.NewServer(uc),
+	)
+
+	log.Println("gRPC server running on :50051")
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatal(err)
+	}
 }

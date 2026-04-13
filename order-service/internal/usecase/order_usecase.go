@@ -1,29 +1,27 @@
 package usecase
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"errors"
-	"net/http"
 	"time"
+
+	"github.com/google/uuid"
 
 	"order-service/internal/domain"
 	"order-service/internal/repository"
 
-	"github.com/google/uuid"
+	pb "github.com/tolik-tachyon/proto-generated/paymentpb"
 )
 
 type OrderUseCase struct {
-	Repo       repository.OrderRepository
-	PaymentURL string
-	HTTPClient *http.Client
+	Repo          repository.OrderRepository
+	PaymentClient pb.PaymentServiceClient
 }
 
-func NewOrderUseCase(repo repository.OrderRepository, paymentURL string) *OrderUseCase {
+func NewOrderUseCase(repo repository.OrderRepository, client pb.PaymentServiceClient) *OrderUseCase {
 	return &OrderUseCase{
-		Repo:       repo,
-		PaymentURL: paymentURL,
-		HTTPClient: &http.Client{Timeout: 2 * time.Second},
+		Repo:          repo,
+		PaymentClient: client,
 	}
 }
 
@@ -37,6 +35,7 @@ func (uc *OrderUseCase) CreateOrder(order *domain.Order, idempotencyKey string) 
 			return existing, nil
 		}
 	}
+
 	order.ID = uuid.New().String()
 	order.Status = "Pending"
 	order.CreatedAt = time.Now()
@@ -50,35 +49,31 @@ func (uc *OrderUseCase) CreateOrder(order *domain.Order, idempotencyKey string) 
 		return nil, err
 	}
 
-	payload := map[string]interface{}{
-		"order_id": order.ID,
-		"amount":   order.Amount,
-	}
-	body, _ := json.Marshal(payload)
-	req, _ := http.NewRequest("POST", uc.PaymentURL+"/payments", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 
-	resp, err := uc.HTTPClient.Do(req)
+	resp, err := uc.PaymentClient.ProcessPayment(
+		ctx,
+		&pb.PaymentRequest{
+			OrderId: order.ID,
+			Amount:  order.Amount,
+		},
+	)
+
 	if err != nil {
 		uc.Repo.UpdateStatus(order.ID, "Failed")
 		order.Status = "Failed"
 		return order, errors.New("payment service unavailable")
 	}
-	defer resp.Body.Close()
-
-	var res struct {
-		Status        string `json:"status"`
-		TransactionID string `json:"transaction_id"`
-	}
-	json.NewDecoder(resp.Body).Decode(&res)
 
 	finalStatus := "Failed"
-	if res.Status == "Authorized" {
+	if resp.Status == "Authorized" {
 		finalStatus = "Paid"
 	}
 
 	uc.Repo.UpdateStatus(order.ID, finalStatus)
 	order.Status = finalStatus
+
 	return order, nil
 }
 

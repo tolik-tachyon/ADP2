@@ -21,7 +21,7 @@ import (
 func main() {
 	dsn := os.Getenv("DB_DSN")
 	if dsn == "" {
-		dsn = "host=localhost port=5432 user=postgres password=Study.ollie dbname=orders_db sslmode=disable"
+		dsn = "host=localhost port=5432 user=postgres password=Study.ollie dbname=order_db sslmode=disable"
 	}
 
 	db, err := sql.Open("postgres", dsn)

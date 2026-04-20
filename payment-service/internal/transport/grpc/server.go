@@ -68,3 +68,10 @@ func (s *Server) SubscribePaymentStatus(
 
 	return nil
 }
+
+func (s *Server) ListPayment(
+	ctx context.Context,
+	req *pb.ListPaymentRequest,
+) (*pb.ListPaymentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}

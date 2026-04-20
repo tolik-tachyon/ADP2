@@ -32,3 +32,7 @@ func (uc *PaymentUseCase) AuthorizePayment(payment *domain.Payment) error {
 func (uc *PaymentUseCase) GetPayment(orderID string) (*domain.Payment, error) {
 	return uc.Repo.GetByOrderID(orderID)
 }
+
+func (uc *PaymentUseCase) ListPayments(status string) ([]*domain.Payment, error) {
+	return uc.Repo.ListByStatus(status)
+}

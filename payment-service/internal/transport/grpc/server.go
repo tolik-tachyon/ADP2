@@ -73,5 +73,22 @@ func (s *Server) ListPayment(
 	ctx context.Context,
 	req *pb.ListPaymentRequest,
 ) (*pb.ListPaymentResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented")
+
+	payments, err := s.UseCase.ListPayments(req.Status)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	var result []*pb.PaymentResponse
+
+	for _, p := range payments {
+		result = append(result, &pb.PaymentResponse{
+			Status:        p.Status,
+			TransactionId: p.TransactionID,
+		})
+	}
+
+	return &pb.ListPaymentResponse{
+		Payments: result,
+	}, nil
 }

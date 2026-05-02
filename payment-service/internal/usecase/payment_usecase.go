@@ -2,13 +2,15 @@ package usecase
 
 import (
 	"payment-service/internal/domain"
+	"payment-service/internal/messaging"
 	"payment-service/internal/repository"
 
 	"github.com/google/uuid"
 )
 
 type PaymentUseCase struct {
-	Repo repository.PaymentRepository
+	Repo      repository.PaymentRepository
+	Publisher *messaging.Publisher
 }
 
 func NewPaymentUseCase(repo repository.PaymentRepository) *PaymentUseCase {
@@ -26,7 +28,22 @@ func (uc *PaymentUseCase) AuthorizePayment(payment *domain.Payment) error {
 		payment.TransactionID = uuid.New().String()
 	}
 
-	return uc.Repo.Create(payment)
+	err := uc.Repo.Create(payment)
+	if err != nil {
+		return err
+	}
+
+	if payment.Status == "Authorized" && uc.Publisher != nil {
+		_ = uc.Publisher.PublishPaymentCompleted(messaging.PaymentEvent{
+			EventID:       uuid.New().String(),
+			OrderID:       payment.OrderID,
+			Amount:        payment.Amount,
+			CustomerEmail: "user@example.com",
+			Status:        payment.Status,
+		})
+	}
+
+	return nil
 }
 
 func (uc *PaymentUseCase) GetPayment(orderID string) (*domain.Payment, error) {

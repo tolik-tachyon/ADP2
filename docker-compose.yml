@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Study.ollie
+    ports:
+      - "5432:5432"
+
+  nats:
+    image: nats:2.10
+    command: ["-js"] # JetStream enabled
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+  order-service:
+    build: ./order-service
+    environment:
+      DB_DSN: "host=postgres port=5432 user=postgres password=Study.ollie dbname=order_db sslmode=disable"
+    depends_on:
+      - postgres
+
+  payment-service:
+    build: ./payment-service
+    environment:
+      DB_DSN: "host=postgres port=5432 user=postgres password=Study.ollie dbname=payment_db sslmode=disable"
+      NATS_URL: "nats://nats:4222"
+    depends_on:
+      - postgres
+      - nats
+
+  notification-service:
+    build: ./notification-service
+    environment:
+      NATS_URL: "nats://nats:4222"
+    depends_on:
+      - nats

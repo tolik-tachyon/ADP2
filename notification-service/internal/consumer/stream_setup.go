@@ -3,7 +3,6 @@ package consumer
 import "github.com/nats-io/nats.go"
 
 func SetupStream(js nats.JetStreamContext) error {
-	// основной stream
 	_, err := js.AddStream(&nats.StreamConfig{
 		Name:      "PAYMENTS",
 		Subjects:  []string{"payment.completed"},
@@ -14,7 +13,6 @@ func SetupStream(js nats.JetStreamContext) error {
 		return err
 	}
 
-	// DLQ stream
 	_, err = js.AddStream(&nats.StreamConfig{
 		Name:      "PAYMENTS_DLQ",
 		Subjects:  []string{"payment.dlq"},

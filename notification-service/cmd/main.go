@@ -31,7 +31,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// ensure stream exists
 	if err := consumer.SetupStream(js); err != nil {
 		log.Fatal(err)
 	}

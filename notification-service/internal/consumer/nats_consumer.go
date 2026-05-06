@@ -54,7 +54,6 @@ func (c *Consumer) Listen(ctx context.Context) {
 				return
 			}
 
-			// idempotency (in-memory for assignment)
 			c.mu.Lock()
 			if c.seen[evt.EventID] {
 				c.mu.Unlock()
@@ -64,7 +63,6 @@ func (c *Consumer) Listen(ctx context.Context) {
 			c.seen[evt.EventID] = true
 			c.mu.Unlock()
 
-			// simulate failure case → send to DLQ
 			if evt.OrderID == "fail-test" {
 				log.Println("[Notification] sending to DLQ")
 
@@ -73,7 +71,6 @@ func (c *Consumer) Listen(ctx context.Context) {
 				return
 			}
 
-			// simulate real processing failure case
 			if evt.Amount < 0 {
 				log.Println("[Notification] invalid amount → DLQ")
 

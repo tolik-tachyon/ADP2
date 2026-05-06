@@ -2,20 +2,13 @@ package messaging
 
 import (
 	"encoding/json"
+	"log"
 
 	"github.com/nats-io/nats.go"
 )
 
 type Publisher struct {
 	js nats.JetStreamContext
-}
-
-func NewPublisher(nc *nats.Conn) (*Publisher, error) {
-	js, err := nc.JetStream()
-	if err != nil {
-		return nil, err
-	}
-	return &Publisher{js: js}, nil
 }
 
 type PaymentEvent struct {
@@ -26,6 +19,26 @@ type PaymentEvent struct {
 	Status        string `json:"status"`
 }
 
+func NewPublisher(nc *nats.Conn) (*Publisher, error) {
+	js, err := nc.JetStream()
+	if err != nil {
+		return nil, err
+	}
+
+	// ✅ SAFE: ensure stream exists
+	_, err = js.AddStream(&nats.StreamConfig{
+		Name:     "PAYMENTS",
+		Subjects: []string{"payment.completed"},
+		Storage:  nats.FileStorage,
+	})
+
+	if err != nil && err != nats.ErrStreamNameAlreadyInUse {
+		log.Println("stream init error:", err)
+	}
+
+	return &Publisher{js: js}, nil
+}
+
 func (p *Publisher) PublishPaymentCompleted(evt PaymentEvent) error {
 	data, err := json.Marshal(evt)
 	if err != nil {
@@ -33,5 +46,11 @@ func (p *Publisher) PublishPaymentCompleted(evt PaymentEvent) error {
 	}
 
 	_, err = p.js.Publish("payment.completed", data)
-	return err
+	if err != nil {
+		return err
+	}
+
+	log.Println("[NATS] event published:", evt.EventID)
+
+	return nil
 }

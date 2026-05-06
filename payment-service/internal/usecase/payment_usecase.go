@@ -28,19 +28,22 @@ func (uc *PaymentUseCase) AuthorizePayment(payment *domain.Payment) error {
 		payment.TransactionID = uuid.New().String()
 	}
 
-	err := uc.Repo.Create(payment)
-	if err != nil {
+	if err := uc.Repo.Create(payment); err != nil {
 		return err
 	}
 
 	if payment.Status == "Authorized" && uc.Publisher != nil {
-		_ = uc.Publisher.PublishPaymentCompleted(messaging.PaymentEvent{
+		err := uc.Publisher.PublishPaymentCompleted(messaging.PaymentEvent{
 			EventID:       uuid.New().String(),
 			OrderID:       payment.OrderID,
 			Amount:        payment.Amount,
 			CustomerEmail: "user@example.com",
 			Status:        payment.Status,
 		})
+
+		if err != nil {
+			return nil
+		}
 	}
 
 	return nil

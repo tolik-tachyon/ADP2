@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,10 +23,11 @@ type OrderUseCase struct {
 	Cache         *cache.RedisCache
 }
 
-func NewOrderUseCase(repo repository.OrderRepository, client pb.PaymentServiceClient) *OrderUseCase {
+func NewOrderUseCase(repo repository.OrderRepository, client pb.PaymentServiceClient, cache *cache.RedisCache) *OrderUseCase {
 	return &OrderUseCase{
 		Repo:          repo,
 		PaymentClient: client,
+		Cache:         cache,
 	}
 }
 
@@ -54,12 +56,10 @@ func (uc *OrderUseCase) CreateOrder(order *domain.Order, idempotencyKey string) 
 	}
 
 	// cache newly created order
-	go func() {
-		if uc.Cache != nil {
-			b, _ := json.Marshal(order)
-			_ = uc.Cache.Set(context.Background(), "order:"+order.ID, string(b), 5*time.Minute)
-		}
-	}()
+	if uc.Cache != nil {
+		b, _ := json.Marshal(order)
+		_ = uc.Cache.Set(context.Background(), "order:"+order.ID, string(b), 5*time.Minute)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -67,8 +67,9 @@ func (uc *OrderUseCase) CreateOrder(order *domain.Order, idempotencyKey string) 
 	resp, err := uc.PaymentClient.ProcessPayment(
 		ctx,
 		&pb.PaymentRequest{
-			OrderId: order.ID,
-			Amount:  order.Amount,
+			OrderId:       order.ID,
+			Amount:        order.Amount,
+			CustomerEmail: order.CustomerEmail,
 		},
 	)
 
@@ -88,7 +89,10 @@ func (uc *OrderUseCase) CreateOrder(order *domain.Order, idempotencyKey string) 
 
 	// invalidate cache after status change
 	if uc.Cache != nil {
-		_ = uc.Cache.Delete(context.Background(), "order:"+order.ID)
+		err := uc.Cache.Delete(context.Background(), "order:"+order.ID)
+		if err != nil {
+			log.Println("cache delete failed:", err)
+		}
 	}
 
 	return order, nil
@@ -136,7 +140,10 @@ func (uc *OrderUseCase) CancelOrder(id string) (*domain.Order, error) {
 
 	// invalidate cache
 	if uc.Cache != nil {
-		_ = uc.Cache.Delete(context.Background(), "order:"+id)
+		err := uc.Cache.Delete(context.Background(), "order:"+order.ID)
+		if err != nil {
+			log.Println("cache delete failed:", err)
+		}
 	}
 
 	return order, nil

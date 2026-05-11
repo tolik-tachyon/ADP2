@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"order-service/internal/cache"
 	"order-service/internal/repository"
 	orderHTTP "order-service/internal/transport/http"
 	"order-service/internal/usecase"
@@ -41,11 +42,19 @@ func main() {
 		grpcAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer conn.Close()
 
 	paymentClient := pb.NewPaymentServiceClient(conn)
 
-	uc := usecase.NewOrderUseCase(repo, paymentClient)
+	// ✅ Redis cache подключение
+	redisCache := cache.NewRedisCache("localhost:6379")
+
+	// ✅ usecase с cache
+	uc := usecase.NewOrderUseCase(repo, paymentClient, redisCache)
+
 	handler := orderHTTP.NewOrderHandler(uc)
 
 	r := gin.Default()
@@ -54,6 +63,7 @@ func main() {
 	r.PATCH("/orders/:id/cancel", handler.CancelOrder)
 
 	log.Println("Order service running on :8080")
+
 	port := os.Getenv("ORDER_PORT")
 	if port == "" {
 		port = "8080"

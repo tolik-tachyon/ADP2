@@ -14,8 +14,15 @@ services:
       - "4222:4222"
       - "8222:8222"
 
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
   order-service:
     build: ./order-service
+    env_file:
+      - .env
     environment:
       DB_DSN: "host=postgres port=5432 user=postgres password=Study.ollie dbname=order_db sslmode=disable"
     depends_on:
@@ -23,6 +30,8 @@ services:
 
   payment-service:
     build: ./payment-service
+    env_file:
+      - .env
     environment:
       DB_DSN: "host=postgres port=5432 user=postgres password=Study.ollie dbname=payment_db sslmode=disable"
       NATS_URL: "nats://nats:4222"
@@ -32,6 +41,8 @@ services:
 
   notification-service:
     build: ./notification-service
+    env_file:
+      - .env
     environment:
       NATS_URL: "nats://nats:4222"
     depends_on:

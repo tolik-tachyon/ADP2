@@ -16,9 +16,18 @@ func NewPostgresOrderRepository(db *sql.DB) *PostgresOrderRepository {
 
 func (r *PostgresOrderRepository) Create(order *domain.Order) error {
 	_, err := r.DB.Exec(`
-		INSERT INTO orders (id, customer_id, item_name, amount, status, created_at, idempotency_key)
-		VALUES ($1,$2,$3,$4,$5,$6,$7)
-	`, order.ID, order.CustomerID, order.ItemName, order.Amount, order.Status, order.CreatedAt, order.IdempotencyKey)
+		INSERT INTO orders (
+    	id,
+    	customer_id,
+    	customer_email,
+    	item_name,
+    	amount,
+        status,
+        created_at,
+        idempotency_key
+)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+	`, order.ID, order.CustomerID, order.CustomerEmail, order.ItemName, order.Amount, order.Status, order.CreatedAt, order.IdempotencyKey)
 	return err
 }
 
@@ -35,9 +44,9 @@ func (r *PostgresOrderRepository) UpdateStatus(id string, status string) error {
 }
 
 func (r *PostgresOrderRepository) GetByID(id string) (*domain.Order, error) {
-	row := r.DB.QueryRow(`SELECT id, customer_id, item_name, amount, status, created_at, idempotency_key FROM orders WHERE id=$1`, id)
+	row := r.DB.QueryRow(`SELECT id, customer_id, customer_email, item_name, amount, status, created_at, idempotency_key FROM orders WHERE id=$1`, id)
 	order := &domain.Order{}
-	err := row.Scan(&order.ID, &order.CustomerID, &order.ItemName, &order.Amount, &order.Status, &order.CreatedAt, &order.IdempotencyKey)
+	err := row.Scan(&order.ID, &order.CustomerID, &order.CustomerEmail, &order.ItemName, &order.Amount, &order.Status, &order.CreatedAt, &order.IdempotencyKey)
 	if err != nil {
 		return nil, err
 	}
@@ -48,9 +57,9 @@ func (r *PostgresOrderRepository) GetByIdempotencyKey(key string) (*domain.Order
 	if key == "" {
 		return nil, nil
 	}
-	row := r.DB.QueryRow(`SELECT id, customer_id, item_name, amount, status, created_at, idempotency_key FROM orders WHERE idempotency_key=$1`, key)
+	row := r.DB.QueryRow(`SELECT id, customer_id, customer_email, item_name, amount, status, created_at, idempotency_key FROM orders WHERE idempotency_key=$1`, key)
 	order := &domain.Order{}
-	err := row.Scan(&order.ID, &order.CustomerID, &order.ItemName, &order.Amount, &order.Status, &order.CreatedAt, &order.IdempotencyKey)
+	err := row.Scan(&order.ID, &order.CustomerID, &order.CustomerEmail, &order.ItemName, &order.Amount, &order.Status, &order.CreatedAt, &order.IdempotencyKey)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil

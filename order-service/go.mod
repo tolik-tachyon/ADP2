@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.1
 	github.com/redis/go-redis/v9 v9.19.0
-	github.com/tolik-tachyon/proto-generated v0.0.0-20260413172025-8151ca88b9b5
+	github.com/tolik-tachyon/proto-generated v0.0.0-20260511162111-70a85939a16a
 	google.golang.org/grpc v1.80.0
 )
 

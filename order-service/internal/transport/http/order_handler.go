@@ -18,9 +18,10 @@ func NewOrderHandler(uc *usecase.OrderUseCase) *OrderHandler {
 
 func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	var req struct {
-		CustomerID string `json:"customer_id"`
-		ItemName   string `json:"item_name"`
-		Amount     int64  `json:"amount"`
+		CustomerID    string `json:"customer_id"`
+		CustomerEmail string `json:"customer_email"`
+		ItemName      string `json:"item_name"`
+		Amount        int64  `json:"amount"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -28,9 +29,10 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	}
 	idemKey := c.GetHeader("Idempotency-Key")
 	order, err := h.UseCase.CreateOrder(&domain.Order{
-		CustomerID: req.CustomerID,
-		ItemName:   req.ItemName,
-		Amount:     req.Amount,
+		CustomerID:    req.CustomerID,
+		CustomerEmail: req.CustomerEmail,
+		ItemName:      req.ItemName,
+		Amount:        req.Amount,
 	}, idemKey)
 	if err != nil && err.Error() == "payment service unavailable" {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error(), "order_status": order.Status})

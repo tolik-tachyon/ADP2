@@ -16,16 +16,16 @@ func NewPostgresPaymentRepository(db *sql.DB) *PostgresPaymentRepository {
 
 func (r *PostgresPaymentRepository) Create(payment *domain.Payment) error {
 	_, err := r.DB.Exec(`
-		INSERT INTO payments (id, order_id, transaction_id, amount, status)
-		VALUES ($1, $2, $3, $4, $5)
-	`, payment.ID, payment.OrderID, payment.TransactionID, payment.Amount, payment.Status)
+		INSERT INTO payments (id, order_id, transaction_id, customer_email, amount, status)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, payment.ID, payment.OrderID, payment.TransactionID, payment.CustomerEmail, payment.Amount, payment.Status)
 	return err
 }
 
 func (r *PostgresPaymentRepository) GetByOrderID(orderID string) (*domain.Payment, error) {
-	row := r.DB.QueryRow(`SELECT id, order_id, transaction_id, amount, status FROM payments WHERE order_id=$1`, orderID)
+	row := r.DB.QueryRow(`SELECT id, order_id, transaction_id, customer_email, amount, status FROM payments WHERE order_id=$1`, orderID)
 	payment := &domain.Payment{}
-	err := row.Scan(&payment.ID, &payment.OrderID, &payment.TransactionID, &payment.Amount, &payment.Status)
+	err := row.Scan(&payment.ID, &payment.OrderID, &payment.TransactionID, &payment.CustomerEmail, &payment.Amount, &payment.Status)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.New("payment not found")
@@ -36,7 +36,7 @@ func (r *PostgresPaymentRepository) GetByOrderID(orderID string) (*domain.Paymen
 }
 
 func (r *PostgresPaymentRepository) ListByStatus(status string) ([]*domain.Payment, error) {
-	query := `SELECT id, order_id, transaction_id, amount, status FROM payments`
+	query := `SELECT id, order_id, transaction_id, customer_email, amount, status FROM payments`
 	args := []any{}
 
 	if status != "" {
@@ -54,7 +54,7 @@ func (r *PostgresPaymentRepository) ListByStatus(status string) ([]*domain.Payme
 
 	for rows.Next() {
 		p := &domain.Payment{}
-		err := rows.Scan(&p.ID, &p.OrderID, &p.TransactionID, &p.Amount, &p.Status)
+		err := rows.Scan(&p.ID, &p.OrderID, &p.TransactionID, &p.CustomerEmail, &p.Amount, &p.Status)
 		if err != nil {
 			return nil, err
 		}

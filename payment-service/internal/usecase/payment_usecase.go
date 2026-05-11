@@ -37,12 +37,12 @@ func (uc *PaymentUseCase) AuthorizePayment(payment *domain.Payment) error {
 			EventID:       uuid.New().String(),
 			OrderID:       payment.OrderID,
 			Amount:        payment.Amount,
-			CustomerEmail: "user@example.com",
+			CustomerEmail: payment.CustomerEmail,
 			Status:        payment.Status,
 		})
 
 		if err != nil {
-			return nil
+			return err
 		}
 	}
 

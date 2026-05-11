@@ -28,8 +28,9 @@ func (s *Server) ProcessPayment(
 ) (*pb.PaymentResponse, error) {
 
 	payment := &domain.Payment{
-		OrderID: req.OrderId,
-		Amount:  req.Amount,
+		OrderID:       req.OrderId,
+		Amount:        req.Amount,
+		CustomerEmail: req.CustomerEmail,
 	}
 
 	err := s.UseCase.AuthorizePayment(payment)
@@ -55,8 +56,9 @@ func (s *Server) SubscribePaymentStatus(
 	time.Sleep(1 * time.Second)
 
 	payment := &domain.Payment{
-		OrderID: req.OrderId,
-		Amount:  req.Amount,
+		OrderID:       req.OrderId,
+		Amount:        req.Amount,
+		CustomerEmail: req.CustomerEmail,
 	}
 
 	_ = s.UseCase.AuthorizePayment(payment)

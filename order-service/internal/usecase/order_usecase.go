@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -11,11 +12,14 @@ import (
 	"order-service/internal/repository"
 
 	pb "github.com/tolik-tachyon/proto-generated/paymentpb"
+
+	"order-service/internal/cache"
 )
 
 type OrderUseCase struct {
 	Repo          repository.OrderRepository
 	PaymentClient pb.PaymentServiceClient
+	Cache         *cache.RedisCache
 }
 
 func NewOrderUseCase(repo repository.OrderRepository, client pb.PaymentServiceClient) *OrderUseCase {
@@ -49,6 +53,14 @@ func (uc *OrderUseCase) CreateOrder(order *domain.Order, idempotencyKey string) 
 		return nil, err
 	}
 
+	// cache newly created order
+	go func() {
+		if uc.Cache != nil {
+			b, _ := json.Marshal(order)
+			_ = uc.Cache.Set(context.Background(), "order:"+order.ID, string(b), 5*time.Minute)
+		}
+	}()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -74,11 +86,37 @@ func (uc *OrderUseCase) CreateOrder(order *domain.Order, idempotencyKey string) 
 	uc.Repo.UpdateStatus(order.ID, finalStatus)
 	order.Status = finalStatus
 
+	// invalidate cache after status change
+	if uc.Cache != nil {
+		_ = uc.Cache.Delete(context.Background(), "order:"+order.ID)
+	}
+
 	return order, nil
 }
 
 func (uc *OrderUseCase) GetOrder(id string) (*domain.Order, error) {
-	return uc.Repo.GetByID(id)
+	// try cache first
+	if uc.Cache != nil {
+		if val, err := uc.Cache.Get(context.Background(), "order:"+id); err == nil {
+			var o domain.Order
+			if json.Unmarshal([]byte(val), &o) == nil {
+				return &o, nil
+			}
+		}
+	}
+
+	order, err := uc.Repo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// store in cache
+	if uc.Cache != nil {
+		b, _ := json.Marshal(order)
+		_ = uc.Cache.Set(context.Background(), "order:"+id, string(b), 5*time.Minute)
+	}
+
+	return order, nil
 }
 
 func (uc *OrderUseCase) CancelOrder(id string) (*domain.Order, error) {
@@ -89,10 +127,17 @@ func (uc *OrderUseCase) CancelOrder(id string) (*domain.Order, error) {
 	if order.Status != "Pending" {
 		return nil, errors.New("only pending orders can be cancelled")
 	}
+
 	err = uc.Repo.UpdateStatus(id, "Cancelled")
 	if err != nil {
 		return nil, err
 	}
 	order.Status = "Cancelled"
+
+	// invalidate cache
+	if uc.Cache != nil {
+		_ = uc.Cache.Delete(context.Background(), "order:"+id)
+	}
+
 	return order, nil
 }

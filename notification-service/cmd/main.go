@@ -2,16 +2,17 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/nats-io/nats.go"
+	"github.com/redis/go-redis/v9"
 
 	"notification-service/internal/consumer"
+	"notification-service/internal/provider"
+	"notification-service/internal/worker"
 )
 
 func main() {
@@ -31,46 +32,39 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// setup streams (PAYMENTS + DLQ)
 	if err := consumer.SetupStream(js); err != nil {
 		log.Fatal(err)
 	}
 
-	http.HandleFunc("/test-publish", func(w http.ResponseWriter, r *http.Request) {
-		type Event struct {
-			EventID       string `json:"event_id"`
-			OrderID       string `json:"order_id"`
-			Amount        int64  `json:"amount"`
-			CustomerEmail string `json:"customer_email"`
-			Status        string `json:"status"`
-		}
+	// Redis
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
 
-		var evt Event
-		_ = json.NewDecoder(r.Body).Decode(&evt)
-
-		data, _ := json.Marshal(evt)
-
-		nc, _ := nats.Connect(os.Getenv("NATS_URL"))
-		js, _ := nc.JetStream()
-
-		_, err := js.Publish("payment.completed", data)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-
-		w.Write([]byte("sent"))
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: redisAddr,
 	})
 
-	go http.ListenAndServe(":8090", nil)
+	// Provider (Adapter Pattern)
+	sender := &provider.MockSender{}
 
-	c := consumer.NewConsumer(js)
+	// Worker (Background processing)
+	w := &worker.Worker{
+		Js:     js,
+		Cache:  redisClient,
+		Sender: sender,
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	go c.Listen(ctx)
+	// start worker
+	go w.Listen(ctx)
 
 	log.Println("Notification service running...")
 
+	// graceful shutdown
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop

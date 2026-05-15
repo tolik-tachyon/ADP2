@@ -49,10 +49,8 @@ func main() {
 
 	paymentClient := pb.NewPaymentServiceClient(conn)
 
-	// ✅ Redis cache подключение
 	redisCache := cache.NewRedisCache("localhost:6379")
 
-	// ✅ usecase с cache
 	uc := usecase.NewOrderUseCase(repo, paymentClient, redisCache)
 
 	handler := orderHTTP.NewOrderHandler(uc)

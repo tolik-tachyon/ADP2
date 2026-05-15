@@ -1,0 +1,14 @@
+# env files
+.env
+*.env
+
+# binaries
+bin/
+dist/
+
+# logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

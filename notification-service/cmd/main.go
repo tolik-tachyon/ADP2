@@ -10,12 +10,12 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/redis/go-redis/v9"
 
-	"notification-service/internal/consumer"
 	"notification-service/internal/provider"
 	"notification-service/internal/worker"
 )
 
 func main() {
+	// ---------------- NATS ----------------
 	natsURL := os.Getenv("NATS_URL")
 	if natsURL == "" {
 		natsURL = "nats://localhost:4222"
@@ -32,12 +32,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// setup streams (PAYMENTS + DLQ)
-	if err := consumer.SetupStream(js); err != nil {
-		log.Fatal(err)
-	}
-
-	// Redis
+	// ---------------- REDIS ----------------
 	redisAddr := os.Getenv("REDIS_ADDR")
 	if redisAddr == "" {
 		redisAddr = "localhost:6379"
@@ -47,10 +42,9 @@ func main() {
 		Addr: redisAddr,
 	})
 
-	// Provider (Adapter Pattern)
+	// ---------------- WORKER ----------------
 	sender := &provider.MockSender{}
 
-	// Worker (Background processing)
 	w := &worker.Worker{
 		Js:     js,
 		Cache:  redisClient,
@@ -59,12 +53,11 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// start worker
 	go w.Listen(ctx)
 
 	log.Println("Notification service running...")
 
-	// graceful shutdown
+	// ---------------- SHUTDOWN ----------------
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
@@ -72,5 +65,5 @@ func main() {
 	log.Println("Shutting down notification service...")
 
 	cancel()
-	nc.Close()
+	_ = nc.Drain()
 }
